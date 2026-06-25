@@ -1,7 +1,23 @@
 import { ShieldCheck } from "lucide-react";
 import type { SafetyCheck } from "@/lib/types";
 
-export function SafetyPanel({ safetyCheck }: { safetyCheck: SafetyCheck }) {
+export function SafetyPanel({
+  safetyCheck,
+  approvalStatus,
+  onApproveExport,
+  onReject,
+}: {
+  safetyCheck: SafetyCheck;
+  approvalStatus: "pending" | "approved" | "rejected";
+  onApproveExport: () => void;
+  onReject: () => void;
+}) {
+  const statusCopy = {
+    pending: "Waiting for human approval.",
+    approved: "Export approved. Sandbox checkout is prepared; publishing remains disabled.",
+    rejected: "Export rejected. External actions remain blocked.",
+  };
+
   return (
     <section className="rounded-3xl border border-amber-300/30 bg-amber-300/10 p-5">
       <div className="mb-5 flex items-start justify-between gap-4">
@@ -49,13 +65,24 @@ export function SafetyPanel({ safetyCheck }: { safetyCheck: SafetyCheck }) {
       </div>
 
       <div className="mt-5 flex flex-wrap gap-3">
-        <button className="rounded-full bg-emerald-300 px-4 py-2 text-sm font-semibold text-zinc-950">
-          Approve export
+        <button
+          onClick={onApproveExport}
+          disabled={approvalStatus === "approved"}
+          className="rounded-full bg-emerald-300 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {approvalStatus === "approved" ? "Export approved" : "Approve export"}
         </button>
-        <button className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white">
+        <button
+          onClick={onReject}
+          disabled={approvalStatus === "rejected"}
+          className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+        >
           Reject
         </button>
       </div>
+      <p className="mt-3 text-sm font-medium text-amber-100">
+        {statusCopy[approvalStatus]}
+      </p>
     </section>
   );
 }

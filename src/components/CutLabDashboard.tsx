@@ -17,6 +17,11 @@ export function CutLabDashboard({ initialRun }: { initialRun: CutLabRun }) {
   const [run, setRun] = useState(initialRun);
   const [isRunning, setIsRunning] = useState(false);
   const [activeStepIndex, setActiveStepIndex] = useState<number | undefined>();
+  const [approvalStatus, setApprovalStatus] = useState<
+    "pending" | "approved" | "rejected"
+  >("pending");
+  const [checkoutMessage, setCheckoutMessage] = useState<string>();
+  const [checkoutUrl, setCheckoutUrl] = useState<string>();
 
   useEffect(() => {
     if (!isRunning) {
@@ -43,6 +48,9 @@ export function CutLabDashboard({ initialRun }: { initialRun: CutLabRun }) {
   async function handleRunWorkflow() {
     setActiveStepIndex(0);
     setIsRunning(true);
+    setApprovalStatus("pending");
+    setCheckoutMessage(undefined);
+    setCheckoutUrl(undefined);
 
     try {
       const response = await fetch("/api/run-agent", {
@@ -62,6 +70,45 @@ export function CutLabDashboard({ initialRun }: { initialRun: CutLabRun }) {
     } catch {
       setRun(initialRun);
     }
+  }
+
+  async function handleApproveExport() {
+    setApprovalStatus("approved");
+    setCheckoutMessage("Preparing sandbox checkout...");
+
+    try {
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        setCheckoutMessage(
+          "Export approved. Sandbox checkout fallback remains available.",
+        );
+        return;
+      }
+
+      const checkout = (await response.json()) as {
+        message?: string;
+        checkoutUrl?: string;
+      };
+      setCheckoutMessage(
+        checkout.message ??
+          "Export approved. PayPal sandbox checkout prepared; no payment executed.",
+      );
+      setCheckoutUrl(checkout.checkoutUrl);
+    } catch {
+      setCheckoutMessage(
+        "Export approved. Checkout service unavailable, so the demo keeps the sandbox placeholder.",
+      );
+      setCheckoutUrl(undefined);
+    }
+  }
+
+  function handleRejectExport() {
+    setApprovalStatus("rejected");
+    setCheckoutMessage("Export rejected. Payment and publishing stay blocked.");
+    setCheckoutUrl(undefined);
   }
 
   return (
@@ -150,8 +197,18 @@ export function CutLabDashboard({ initialRun }: { initialRun: CutLabRun }) {
           </div>
 
           <div className="space-y-6">
-            <SafetyPanel safetyCheck={run.safetyCheck} />
-            <MonetisationPanel monetisation={run.monetisation} />
+            <SafetyPanel
+              safetyCheck={run.safetyCheck}
+              approvalStatus={approvalStatus}
+              onApproveExport={handleApproveExport}
+              onReject={handleRejectExport}
+            />
+            <MonetisationPanel
+              monetisation={run.monetisation}
+              approvalStatus={approvalStatus}
+              checkoutMessage={checkoutMessage}
+              checkoutUrl={checkoutUrl}
+            />
             <AuditLog events={run.auditLog} />
           </div>
         </section>
