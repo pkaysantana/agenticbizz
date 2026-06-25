@@ -1,0 +1,78 @@
+═══════════════════════════════════════════════════════
+AI VIDEO SCRIPT GENERATOR — FULL PIPELINE
+═══════════════════════════════════════════════════════
+
+FILES
+─────
+collector.py   — fetches trending YouTube videos + transcripts
+analyser.py    — sliding window analysis, builds style profiles
+pipeline.py    — generates scripts (already built)
+
+SETUP
+─────
+1. Install dependencies:
+   pip install google-api-python-client yt-dlp
+
+2. Set your API key:
+   export YOUTUBE_API_KEY='your_key_here'
+   (add to ~/.bashrc to make permanent)
+
+WEEKLY WORKFLOW
+───────────────
+Step 1 — Collect new data:
+   python3 collector.py --collect
+
+   Options:
+   --niches Technology Finance Health    (specific niches only)
+   --after 2024-01-01                    (only recent videos)
+   --no-trending                         (skip trending, search only)
+   --dry-run                             (metadata only, no transcripts)
+
+Step 2 — Run analysis (builds style profiles):
+   python3 analyser.py --analyse
+
+Step 3 — Generate scripts (now informed by profiles):
+   python3 pipeline.py my_transcript.txt --style remix --niche Technology
+
+   OR batch:
+   python3 pipeline.py ./transcripts/ --style remix --output ./scripts
+
+INSPECT YOUR DATA
+─────────────────
+   python3 collector.py --stats
+   python3 analyser.py --profile Technology
+   python3 analyser.py --profile Finance
+
+DATA STRUCTURE
+──────────────
+data/
+  index.json                  — master index of all collected videos
+  transcripts/
+    Technology/               — transcripts organised by niche
+    Finance/
+    ...
+  metadata/
+    {video_id}.json           — per-video metadata
+  style_profiles/
+    Technology_profile.json   — style guidance per niche
+    _all_profiles.json        — combined profile
+
+HOW IT IMPROVES OVER TIME
+──────────────────────────
+Each weekly collection run adds more videos to the index.
+The analyser uses a sliding window across years to detect:
+  - Which hook patterns correlate with high view counts
+  - How sentence length / pacing has evolved year by year
+  - Which vocabulary is currently trending vs outdated
+  - Power word density in top-performing vs average videos
+
+The style profiles feed directly into the script generator,
+so the more data you collect, the more targeted the output.
+
+AUTOMATE WITH CRON (optional)
+──────────────────────────────
+Run weekly automatically on Linux/Mac:
+  crontab -e
+  Add: 0 9 * * 1 cd /path/to/project && python3 collector.py --collect && python3 analyser.py --analyse
+
+═══════════════════════════════════════════════════════

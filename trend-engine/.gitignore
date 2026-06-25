@@ -1,0 +1,11 @@
+# Generated corpus + analysis output (rebuilt by the collectors/analyser)
+corpus/
+data/
+output_scripts/
+scripts/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/

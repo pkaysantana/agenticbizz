@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Not-AI-Slop — Corpus Explorer</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #faf9f5;
+    --surface: #ffffff;
+    --surface-alt: #f1efe8;
+    --border: rgba(11,11,11,0.10);
+    --border-strong: rgba(11,11,11,0.18);
+    --text: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --accent-bg: #E6F1FB;
+    --accent-text: #185FA5;
+    --radius: 8px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a19;
+      --surface: #262625;
+      --surface-alt: #2c2c2a;
+      --border: rgba(255,255,255,0.10);
+      --border-strong: rgba(255,255,255,0.18);
+      --text: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted: #898781;
+      --accent-bg: #0C447C;
+      --accent-text: #B5D4F4;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 2rem;
+    line-height: 1.6;
+  }
+  .container { max-width: 880px; margin: 0 auto; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+  .title { font-size: 22px; font-weight: 500; margin: 0; }
+  .subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  select { padding: 8px 12px; border-radius: var(--radius); border: 0.5px solid var(--border-strong); background: var(--surface); color: var(--text); font-size: 13px; cursor: pointer; }
+  .year-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .year-btn { cursor: pointer; padding: 6px 14px; border-radius: var(--radius); border: 0.5px solid var(--border-strong); background: transparent; color: var(--text-secondary); font-size: 13px; transition: all 0.15s; }
+  .year-btn.active { background: var(--accent-bg); color: var(--accent-text); border-color: var(--accent-text); }
+  .year-btn:hover:not(.active) { background: var(--surface-alt); }
+  .tabs { display: flex; gap: 6px; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .tab { cursor: pointer; padding: 6px 16px; border-radius: var(--radius); border: 0.5px solid var(--border); background: transparent; color: var(--text-muted); font-size: 13px; transition: all 0.15s; }
+  .tab.active { background: var(--surface); color: var(--text); border-color: var(--border-strong); font-weight: 500; }
+  .panel { background: var(--surface-alt); border: 0.5px solid var(--border); border-radius: 12px; padding: 1.5rem; min-height: 180px; }
+  .word-pill { display: inline-block; padding: 3px 10px; margin: 3px; font-weight: 500; }
+  .stat-row { margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 6px; }
+  .stat-pill { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 4px 10px; font-size: 12px; color: var(--text-secondary); }
+  .excerpt-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 10px; }
+  .excerpt-label { font-size: 11px; font-weight: 500; color: var(--text-muted); letter-spacing: 0.05em; margin-bottom: 6px; text-transform: uppercase; }
+  .excerpt-text { font-size: 14px; line-height: 1.6; font-style: italic; }
+  .hook-bar { background: var(--surface); border: 0.5px solid var(--border); border-radius: 12px; padding: .75rem 1rem; margin-bottom: 8px; }
+  .hook-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .hook-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
+  .loading { text-align: center; padding: 3rem; color: var(--text-muted); }
+  .error { background: #FCEBEB; color: #A32D2D; padding: 1rem; border-radius: var(--radius); font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div>
+      <h1 class="title">Not-AI-Slop — Corpus Explorer</h1>
+      <div class="subtitle" id="subtitle">Loading corpus data...</div>
+    </div>
+    <div class="controls">
+      <select id="nicheSelect"></select>
+    </div>
+  </div>
+
+  <div class="year-btns" id="yearBtns"></div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-tab="words">Word corpus</button>
+    <button class="tab" data-tab="hooks">Hook patterns</button>
+    <button class="tab" data-tab="excerpts">Openings · Midpoints · Endings</button>
+    <button class="tab" data-tab="trend">Trend over time</button>
+  </div>
+
+  <div id="content"><div class="loading">Loading...</div></div>
+</div>
+
+<script>
+let DATA = {};
+let activeNiche = null;
+let activeYear = null;
+let activeTab = "words";
+let trendChart = null;
+
+const COLORS = ['#2a78d6','#1baf7a','#eda100','#4a3aa7','#e34948','#eb6834','#e87ba4','#008300'];
+const WORD_SIZES = [28,24,21,19,17,16,15,14,13,13,12,12,12,12,12];
+const WORD_COLORS = ['#185FA5','#1baf7a','#eda100','#4a3aa7','#e34948','#eb6834'];
+
+async function loadData() {
+  try {
+    const res = await fetch('/api/data');
+    DATA = await res.json();
+    if (DATA.error) {
+      document.getElementById('content').innerHTML = `<div class="error">${DATA.error}</div>`;
+      document.getElementById('subtitle').textContent = 'No data';
+      return;
+    }
+    initNiches();
+  } catch (e) {
+    document.getElementById('content').innerHTML = `<div class="error">Could not load data. Is the server running? (${e.message})</div>`;
+  }
+}
+
+function initNiches() {
+  const niches = Object.keys(DATA);
+  if (!niches.length) {
+    document.getElementById('content').innerHTML = '<div class="error">No niches found in corpus.</div>';
+    return;
+  }
+  activeNiche = niches[0];
+  const sel = document.getElementById('nicheSelect');
+  sel.innerHTML = niches.map(n => `<option value="${n}">${n.replace(/_/g,'/')}</option>`).join('');
+  sel.onchange = () => { activeNiche = sel.value; initYears(); render(); };
+  initYears();
+  initTabs();
+  render();
+}
+
+function getYears() {
+  return Object.keys(DATA[activeNiche].cohorts).sort();
+}
+
+function initYears() {
+  const years = getYears();
+  activeYear = years[years.length - 1];
+  const total = years.reduce((s,y) => s + DATA[activeNiche].cohorts[y].count, 0);
+  document.getElementById('subtitle').textContent =
+    `${total} videos · ${years[0]}–${years[years.length-1]} · sliding window analysis`;
+  const c = document.getElementById('yearBtns');
+  c.innerHTML = '';
+  years.forEach(y => {
+    const b = document.createElement('button');
+    b.className = 'year-btn' + (y === activeYear ? ' active' : '');
+    b.textContent = y;
+    b.onclick = () => {
+      activeYear = y;
+      document.querySelectorAll('.year-btn').forEach(btn => btn.classList.toggle('active', btn.textContent === y));
+      render();
+    };
+    c.appendChild(b);
+  });
+}
+
+function initTabs() {
+  document.querySelectorAll('.tab').forEach(t => {
+    t.onclick = () => {
+      activeTab = t.dataset.tab;
+      document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+      render();
+    };
+  });
+}
+
+function renderWords() {
+  const d = DATA[activeNiche].cohorts[activeYear];
+  const words = d.vocab || [];
+  return `<div class="panel">
+    ${words.map((w,i) => `<span class="word-pill" style="font-size:${WORD_SIZES[Math.min(i,14)]}px;color:${WORD_COLORS[i%6]};">${w}</span>`).join('')}
+  </div>
+  <div class="stat-row">
+    <span class="stat-pill">~${(d.wordCount||0).toLocaleString()} avg words</span>
+    <span class="stat-pill">~${d.sentenceLen}w sentences</span>
+    <span class="stat-pill">${d.pacing}w/segment</span>
+    <span class="stat-pill">${d.powerDensity}% power density</span>
+    <span class="stat-pill">${d.ctaRate}% include CTA</span>
+    <span class="stat-pill">${d.count} videos</span>
+  </div>`;
+}
+
+function renderHooks() {
+  const d = DATA[activeNiche].cohorts[activeYear];
+  const hooks = Object.entries(d.hooks || {}).sort((a,b)=>b[1]-a[1]);
+  if (!hooks.length) return '<div class="panel">No hook patterns detected for this cohort.</div>';
+  const total = hooks.reduce((s,[,v])=>s+v,0);
+  return `<div>${hooks.map(([hook,count],i) => {
+    const pct = Math.round(count/total*100);
+    return `<div class="hook-bar">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:14px;font-weight:500;">"${hook}..."</span>
+        <span style="font-size:13px;color:var(--text-muted);">${count} · ${pct}%</span>
+      </div>
+      <div class="hook-track"><div class="hook-fill" style="width:${pct}%;background:${COLORS[i%8]};"></div></div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function renderExcerpts() {
+  const d = DATA[activeNiche].cohorts[activeYear];
+  return `
+  <div class="excerpt-card">
+    <div class="excerpt-label">Opening (first lines)</div>
+    <div class="excerpt-text">${d.opening}</div>
+  </div>
+  <div class="excerpt-card">
+    <div class="excerpt-label">Midpoint (~50% mark)</div>
+    <div class="excerpt-text">${d.midpoint}</div>
+  </div>
+  <div class="excerpt-card">
+    <div class="excerpt-label">Ending (final lines)</div>
+    <div class="excerpt-text">${d.ending}</div>
+  </div>`;
+}
+
+function renderTrend() {
+  return `<div style="position:relative;width:100%;height:320px;background:var(--surface-alt);border-radius:12px;padding:1rem;">
+    <canvas id="trendChart"></canvas>
+  </div>`;
+}
+
+function initTrendChart() {
+  const ctx = document.getElementById('trendChart');
+  if (!ctx) return;
+  if (trendChart) trendChart.destroy();
+  const years = getYears();
+  const co = DATA[activeNiche].cohorts;
+  trendChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: years,
+      datasets: [
+        { label: 'Avg words ÷10', data: years.map(y=>Math.round(co[y].wordCount/10)), borderColor:'#2a78d6', borderWidth:2, pointRadius:4, pointBackgroundColor:'#2a78d6' },
+        { label: 'Power density ×100', data: years.map(y=>Math.round(co[y].powerDensity*100)), borderColor:'#e34948', borderWidth:2, pointRadius:4, borderDash:[4,3], pointBackgroundColor:'#e34948' },
+        { label: 'CTA rate %', data: years.map(y=>co[y].ctaRate), borderColor:'#1baf7a', borderWidth:2, pointRadius:4, borderDash:[6,2], pointBackgroundColor:'#1baf7a' },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'#898781', boxWidth:18, font:{size:12} } }, tooltip:{ mode:'index', intersect:false } },
+      scales:{ x:{ grid:{ color:'rgba(128,128,128,0.12)' }, ticks:{ color:'#898781' } }, y:{ grid:{ color:'rgba(128,128,128,0.12)' }, ticks:{ color:'#898781' }, beginAtZero:true } }
+    }
+  });
+}
+
+function render() {
+  const c = document.getElementById('content');
+  if (activeTab === 'words') c.innerHTML = renderWords();
+  else if (activeTab === 'hooks') c.innerHTML = renderHooks();
+  else if (activeTab === 'excerpts') c.innerHTML = renderExcerpts();
+  else if (activeTab === 'trend') { c.innerHTML = renderTrend(); requestAnimationFrame(initTrendChart); }
+}
+
+loadData();
+</script>
+</body>
+</html>
