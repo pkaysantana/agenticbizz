@@ -195,7 +195,16 @@ def chunk_transcript(parsed, num_sections=6):
         return chunks
     else:
         times = [e['time_sec'] for e in entries if e['time_sec'] is not None]
-        total = max(times) if times else 600
+        total = max(times) if times else 0
+        if total <= 0:
+            # Degenerate timestamps (e.g. a single 0:00 marker) — split evenly by position.
+            chunk_size = max(1, len(entries) // num_sections)
+            even = []
+            for i in range(num_sections):
+                start = i * chunk_size
+                end = start + chunk_size if i < num_sections - 1 else len(entries)
+                even.append(' '.join(e['text'] for e in entries[start:end]))
+            return [c for c in even if c]
         section_dur = total / num_sections
         chunks = [[] for _ in range(num_sections)]
         for e in entries:
