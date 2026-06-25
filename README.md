@@ -100,7 +100,7 @@ Current demo status: approved for internal preview, requires human approval for 
 
 `src/lib/demo-data.ts` is the judge-visible source of truth. The seeded data always works.
 
-`/api/run-agent` accepts a POST body with brief, niche, and product fields. If `MODAL_TREND_ENDPOINT` exists, the route tries it with an 8-second timeout. If Modal is missing, slow, failed, or returns the wrong shape, the route returns deterministic seeded `CutLabRun` data.
+`/api/run-agent` accepts a POST body with brief, niche, and product fields. If `MODAL_TREND_ENDPOINT` exists, the route tries it with a 15-second timeout (with `maxDuration` raised to allow for a Modal cold start). If Modal is missing, slow, failed, or returns the wrong shape, the route returns deterministic seeded `CutLabRun` data.
 
 `/api/checkout` returns PayPal Sandbox-shaped checkout data. If PayPal credentials are missing, it returns mock checkout data instead of failing the demo.
 

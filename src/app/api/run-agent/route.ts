@@ -5,6 +5,9 @@ import {
 } from "@/lib/demo-data";
 import type { CampaignBriefInput, CutLabRun } from "@/lib/types";
 
+// Allow enough headroom for a Modal cold start before falling back to seeded data.
+export const maxDuration = 20;
+
 const briefSchema = z.object({
   userRequest: z.string().min(1).optional(),
   brand: z.string().min(1).optional(),
@@ -55,7 +58,7 @@ async function getModalRun(
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8_000);
+  const timeout = setTimeout(() => controller.abort(), 15_000);
 
   try {
     const response = await fetch(endpoint, {
