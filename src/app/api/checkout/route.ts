@@ -9,6 +9,8 @@ type CheckoutResponse = {
   approvalUrl?: string;
 };
 
+const PAYPAL_REQUEST_TIMEOUT_MS = 8_000;
+
 const baseCheckout: Omit<CheckoutResponse, "checkoutStatus" | "message"> = {
   provider: "PayPal Sandbox",
   sandboxMode: true,
@@ -59,6 +61,11 @@ async function createPayPalSandboxOrder(
 > {
   const baseUrl =
     process.env.PAYPAL_API_BASE_URL ?? "https://api-m.sandbox.paypal.com";
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    PAYPAL_REQUEST_TIMEOUT_MS,
+  );
 
   try {
     const tokenResponse = await fetch(`${baseUrl}/v1/oauth2/token`, {
@@ -70,6 +77,7 @@ async function createPayPalSandboxOrder(
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: "grant_type=client_credentials",
+      signal: controller.signal,
     });
 
     if (!tokenResponse.ok) {
@@ -110,6 +118,7 @@ async function createPayPalSandboxOrder(
           cancel_url: siteUrl,
         },
       }),
+      signal: controller.signal,
     });
 
     if (!orderResponse.ok) {
@@ -131,5 +140,7 @@ async function createPayPalSandboxOrder(
     return { ok: true, orderId: orderPayload.id, approvalUrl };
   } catch {
     return { ok: false, reason: "paypal_network_error" };
+  } finally {
+    clearTimeout(timeout);
   }
 }

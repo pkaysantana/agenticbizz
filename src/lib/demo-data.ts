@@ -7,9 +7,11 @@ import type {
   FinalCut,
   HookVariant,
   InitialVideoConcept,
+  Keyframe,
   LearningLoop,
   MonetisationStep,
   SafetyCheck,
+  Scene,
   TrendFingerprint,
   VideoComparison,
 } from "@/lib/types";
@@ -468,6 +470,282 @@ const auditLog: AuditEvent[] = auditActions.map(([action, agentName], index) => 
   status: action === "Human approval pending" ? "pending_approval" : "completed",
 }));
 
+type UnknownRecord = Record<string, unknown>;
+
+const agentStatuses = new Set(["completed", "running", "needs_approval", "blocked"]);
+const outputTypes = new Set([
+  "brief",
+  "rough_cut",
+  "trend_scan",
+  "comparison",
+  "hooks",
+  "final_cut",
+  "learning",
+  "safety",
+  "monetisation",
+]);
+const riskLevels = new Set(["low", "medium", "high"]);
+const safetyStatuses = new Set([
+  "approved_for_internal_preview",
+  "requires_human_approval",
+  "blocked",
+]);
+const currencies = new Set(["GBP", "USD", "EUR"]);
+const auditStatuses = new Set(["completed", "pending_approval"]);
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function hasString(record: UnknownRecord, key: string) {
+  return typeof record[key] === "string" && record[key].trim().length > 0;
+}
+
+function hasNumber(record: UnknownRecord, key: string) {
+  return typeof record[key] === "number" && Number.isFinite(record[key]);
+}
+
+function hasBoolean(record: UnknownRecord, key: string) {
+  return typeof record[key] === "boolean";
+}
+
+function isStringArray(value: unknown) {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function isNonEmptyStringArray(value: unknown) {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((item) => typeof item === "string" && item.trim().length > 0)
+  );
+}
+
+function isNonEmptyArrayOf<T>(
+  value: unknown,
+  predicate: (item: unknown) => item is T,
+): value is T[] {
+  return Array.isArray(value) && value.length > 0 && value.every(predicate);
+}
+
+function isAllowedString(value: unknown, allowed: Set<string>) {
+  return typeof value === "string" && allowed.has(value);
+}
+
+function isCampaignBrief(value: unknown): value is CampaignBrief {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    hasString(value, "id") &&
+    hasString(value, "userRequest") &&
+    hasString(value, "brand") &&
+    hasString(value, "niche") &&
+    hasString(value, "audience") &&
+    hasString(value, "businessObjective") &&
+    hasString(value, "tone") &&
+    hasString(value, "product") &&
+    isStringArray(value.constraints)
+  );
+}
+
+function isScene(value: unknown): value is Scene {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    hasString(value, "id") &&
+    hasString(value, "timestamp") &&
+    hasString(value, "visual") &&
+    hasString(value, "overlay") &&
+    hasString(value, "script") &&
+    hasString(value, "cameraNotes")
+  );
+}
+
+function isKeyframe(value: unknown): value is Keyframe {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    hasString(value, "id") &&
+    hasString(value, "timestamp") &&
+    hasString(value, "description")
+  );
+}
+
+function isInitialVideoConcept(value: unknown): value is InitialVideoConcept {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    hasString(value, "title") &&
+    hasNumber(value, "durationSeconds") &&
+    isNonEmptyStringArray(value.structure) &&
+    isNonEmptyArrayOf(value.scenes, isScene) &&
+    hasString(value, "openingHook") &&
+    isNonEmptyStringArray(value.scriptDraft) &&
+    isNonEmptyArrayOf(value.keyframes, isKeyframe)
+  );
+}
+
+function isAgentStep(value: unknown): value is AgentStep {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    hasString(value, "id") &&
+    hasString(value, "agentName") &&
+    isAllowedString(value.status, agentStatuses) &&
+    hasString(value, "summary") &&
+    isAllowedString(value.outputType, outputTypes) &&
+    isAllowedString(value.riskLevel, riskLevels)
+  );
+}
+
+function isTrendFingerprint(value: unknown): value is TrendFingerprint {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    hasString(value, "id") &&
+    hasString(value, "name") &&
+    hasString(value, "frameOneVisual") &&
+    hasString(value, "firstCutTiming") &&
+    hasString(value, "textOverlayPattern") &&
+    hasString(value, "movementPacing") &&
+    hasString(value, "emotionalTrigger") &&
+    hasNumber(value, "relevanceScore") &&
+    hasString(value, "whyItWorks")
+  );
+}
+
+function isVideoComparison(value: unknown): value is VideoComparison {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    hasString(value, "initialHook") &&
+    hasString(value, "problem") &&
+    hasString(value, "trendingPattern") &&
+    hasString(value, "improvement") &&
+    isNonEmptyStringArray(value.matchedFingerprints)
+  );
+}
+
+function isHookVariant(value: unknown): value is HookVariant {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const recommendedIsValid =
+    value.recommended === undefined || typeof value.recommended === "boolean";
+
+  return (
+    hasString(value, "id") &&
+    hasString(value, "name") &&
+    hasString(value, "firstThreeSecondsScript") &&
+    hasString(value, "frameOneDescription") &&
+    hasString(value, "textOverlay") &&
+    hasString(value, "firstCutTiming") &&
+    isNonEmptyStringArray(value.shotSequence) &&
+    hasNumber(value, "predictedThreeSecondHoldRate") &&
+    hasNumber(value, "predictedThirtySecondRetention") &&
+    hasNumber(value, "predictedPurchaseIntent") &&
+    hasString(value, "rationale") &&
+    recommendedIsValid
+  );
+}
+
+function isFinalCut(value: unknown): value is FinalCut {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    hasString(value, "title") &&
+    hasNumber(value, "durationSeconds") &&
+    hasString(value, "hook") &&
+    isNonEmptyStringArray(value.script) &&
+    isNonEmptyArrayOf(value.scenes, isScene) &&
+    isNonEmptyArrayOf(value.keyframes, isKeyframe) &&
+    hasString(value, "selectedBecause")
+  );
+}
+
+function isLearningLoop(value: unknown): value is LearningLoop {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    hasNumber(value, "predictedThreeSecondHold") &&
+    hasNumber(value, "predictedThirtySecondRetention") &&
+    hasNumber(value, "predictedClickIntent") &&
+    hasNumber(value, "confidenceScore") &&
+    hasString(value, "whatTheSystemLearned") &&
+    hasString(value, "nextGenerationImprovement") &&
+    hasString(value, "generationOne") &&
+    hasString(value, "generationTen")
+  );
+}
+
+function isSafetyCheck(value: unknown): value is SafetyCheck {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    isAllowedString(value.copyrightSimilarityRisk, riskLevels) &&
+    isAllowedString(value.brandSafetyRisk, riskLevels) &&
+    isAllowedString(value.misleadingClaimsRisk, riskLevels) &&
+    isAllowedString(value.platformPolicyRisk, riskLevels) &&
+    hasBoolean(value, "approvalRequiredBeforePublishing") &&
+    hasBoolean(value, "approvalRequiredBeforePaymentExport") &&
+    isAllowedString(value.status, safetyStatuses) &&
+    hasString(value, "policyLanguage") &&
+    isNonEmptyStringArray(value.notes)
+  );
+}
+
+function isMonetisationStep(value: unknown): value is MonetisationStep {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    hasString(value, "product") &&
+    hasNumber(value, "price") &&
+    isAllowedString(value.currency, currencies) &&
+    hasString(value, "agencyPlan") &&
+    value.paymentProvider === "PayPal Sandbox" &&
+    hasString(value, "checkoutStatus") &&
+    hasBoolean(value, "approvalRequired") &&
+    hasString(value, "message")
+  );
+}
+
+function isAuditEvent(value: unknown): value is AuditEvent {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    hasString(value, "id") &&
+    hasString(value, "timestamp") &&
+    hasString(value, "action") &&
+    hasString(value, "agentName") &&
+    isAllowedString(value.status, auditStatuses)
+  );
+}
+
 export function createSeededCutLabRun(
   input: CampaignBriefInput = {},
   options: { fallbackUsed?: boolean } = {},
@@ -491,24 +769,30 @@ export function createSeededCutLabRun(
 }
 
 export function isCompleteCutLabRun(value: unknown): value is CutLabRun {
-  if (!value || typeof value !== "object") {
+  if (!isRecord(value)) {
     return false;
   }
 
-  const run = value as Partial<CutLabRun>;
+  const hookVariants = value.hookVariants;
 
-  return Boolean(
-    run.id &&
-      run.brief &&
-      run.initialVideoConcept &&
-      Array.isArray(run.agentSteps) &&
-      Array.isArray(run.trendFingerprints) &&
-      run.comparison &&
-      Array.isArray(run.hookVariants) &&
-      run.finalCut &&
-      run.learningLoop &&
-      run.safetyCheck &&
-      run.monetisation &&
-      Array.isArray(run.auditLog),
+  if (!isNonEmptyArrayOf(hookVariants, isHookVariant)) {
+    return false;
+  }
+
+  return (
+    hasString(value, "id") &&
+    isCampaignBrief(value.brief) &&
+    isInitialVideoConcept(value.initialVideoConcept) &&
+    isNonEmptyArrayOf(value.agentSteps, isAgentStep) &&
+    isNonEmptyArrayOf(value.trendFingerprints, isTrendFingerprint) &&
+    isVideoComparison(value.comparison) &&
+    hookVariants.some((variant) => variant.recommended === true) &&
+    isFinalCut(value.finalCut) &&
+    isLearningLoop(value.learningLoop) &&
+    isSafetyCheck(value.safetyCheck) &&
+    isMonetisationStep(value.monetisation) &&
+    isNonEmptyArrayOf(value.auditLog, isAuditEvent) &&
+    hasBoolean(value, "fallbackUsed") &&
+    hasString(value, "generatedAt")
   );
 }
