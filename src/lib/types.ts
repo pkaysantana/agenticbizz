@@ -4,138 +4,166 @@ export type RiskLevel = "low" | "medium" | "high";
 
 export type OutputType =
   | "brief"
-  | "fingerprints"
-  | "storyboard"
+  | "rough_cut"
+  | "trend_scan"
+  | "comparison"
   | "hooks"
-  | "prediction"
+  | "final_cut"
+  | "learning"
   | "safety"
   | "monetisation";
 
-export type SafetyStatus = "approved_for_preview" | "warn" | "block";
-
-export type CheckoutStatus = "sandbox_prepared" | "configured" | "not_configured";
-
-export type ExportStatus = "waiting_for_approval" | "ready" | "blocked";
+export type SafetyStatus =
+  | "approved_for_internal_preview"
+  | "requires_human_approval"
+  | "blocked";
 
 export interface CampaignBrief {
   id: string;
-  brandName: string;
+  userRequest: string;
+  brand: string;
   niche: string;
-  product: string;
-  goal: string;
   audience: string;
   businessObjective: string;
   tone: string;
+  product: string;
   constraints: string[];
-  createdAt: string;
 }
 
-export interface AgentStep {
+export interface Scene {
   id: string;
-  agentName: string;
-  status: AgentStatus;
-  startedAt: string;
-  completedAt?: string;
-  summary: string;
-  outputType: OutputType;
-  riskLevel: RiskLevel;
+  timestamp: string;
+  visual: string;
+  overlay: string;
+  script: string;
+  cameraNotes: string;
+}
+
+export interface Keyframe {
+  id: string;
+  timestamp: string;
+  description: string;
+}
+
+export interface InitialVideoConcept {
+  title: string;
+  durationSeconds: number;
+  structure: string[];
+  scenes: Scene[];
+  openingHook: string;
+  scriptDraft: string[];
+  keyframes: Keyframe[];
 }
 
 export interface TrendFingerprint {
   id: string;
   name: string;
   frameOneVisual: string;
-  firstCutSeconds: number;
+  firstCutTiming: string;
   textOverlayPattern: string;
-  motionPattern: string;
-  soundOrPacing: string;
+  movementPacing: string;
   emotionalTrigger: string;
-  whyItWorks: string;
   relevanceScore: number;
-  sourceType: "seeded_demo" | "modal_endpoint" | "user_feedback";
-  notes: string;
+  whyItWorks: string;
 }
 
-export interface StoryboardScene {
-  id: string;
-  timestamp: string;
-  visual: string;
-  overlayText: string;
-  narration: string;
-  cameraNotes: string;
-  funnelPurpose: string;
+export interface VideoComparison {
+  initialHook: string;
+  problem: string;
+  trendingPattern: string;
+  improvement: string;
+  matchedFingerprints: string[];
 }
 
 export interface HookVariant {
   id: string;
   name: string;
-  basedOnFingerprintId: string;
-  openingScript: string;
-  frameOne: string;
+  firstThreeSecondsScript: string;
+  frameOneDescription: string;
   textOverlay: string;
-  firstCutSeconds: number;
+  firstCutTiming: string;
   shotSequence: string[];
-  predictedReaction: string;
+  predictedThreeSecondHoldRate: number;
+  predictedThirtySecondRetention: number;
+  predictedPurchaseIntent: number;
   rationale: string;
+  recommended?: boolean;
 }
 
-export interface RetentionPrediction {
-  variantId: string;
-  threeSecondHoldRate: number;
-  thirtySecondRetention: number;
-  clickIntentScore: number;
-  confidence: number;
-  reasoning: string;
+export interface FinalCut {
+  title: string;
+  durationSeconds: number;
+  hook: string;
+  script: string[];
+  scenes: Scene[];
+  keyframes: Keyframe[];
+  selectedBecause: string;
+}
+
+export interface LearningLoop {
+  predictedThreeSecondHold: number;
+  predictedThirtySecondRetention: number;
+  predictedClickIntent: number;
+  confidenceScore: number;
+  whatTheSystemLearned: string;
+  nextGenerationImprovement: string;
+  generationOne: string;
+  generationTen: string;
 }
 
 export interface SafetyCheck {
   copyrightSimilarityRisk: RiskLevel;
   brandSafetyRisk: RiskLevel;
-  misleadingClaimRisk: RiskLevel;
+  misleadingClaimsRisk: RiskLevel;
   platformPolicyRisk: RiskLevel;
-  reputationalRisk: RiskLevel;
-  riskScore: number;
-  approvalRequired: boolean;
+  approvalRequiredBeforePublishing: boolean;
+  approvalRequiredBeforePaymentExport: boolean;
   status: SafetyStatus;
+  policyLanguage: string;
   notes: string[];
-  externalActionsAllowed: boolean;
 }
 
 export interface MonetisationStep {
+  product: string;
   price: number;
   currency: "GBP" | "USD" | "EUR";
-  paymentProvider: "PayPal Sandbox" | "PayPal" | "Not configured";
-  sandboxMode: boolean;
-  checkoutStatus: CheckoutStatus;
-  exportStatus: ExportStatus;
-  businessModel: string;
-  offer: string;
+  agencyPlan: string;
+  paymentProvider: "PayPal Sandbox";
+  checkoutStatus: string;
+  approvalRequired: boolean;
+  message: string;
 }
 
 export interface AuditEvent {
   id: string;
   timestamp: string;
-  agentName: string;
   action: string;
-  inputSummary: string;
-  outputSummary: string;
+  agentName: string;
+  status: "completed" | "pending_approval";
+}
+
+export interface AgentStep {
+  id: string;
+  agentName: string;
+  status: AgentStatus;
+  summary: string;
+  outputType: OutputType;
   riskLevel: RiskLevel;
-  requiresApproval: boolean;
 }
 
 export interface CutLabRun {
   id: string;
   brief: CampaignBrief;
+  initialVideoConcept: InitialVideoConcept;
   agentSteps: AgentStep[];
-  fingerprints: TrendFingerprint[];
-  storyboard: StoryboardScene[];
+  trendFingerprints: TrendFingerprint[];
+  comparison: VideoComparison;
   hookVariants: HookVariant[];
-  predictions: RetentionPrediction[];
+  finalCut: FinalCut;
+  learningLoop: LearningLoop;
   safetyCheck: SafetyCheck;
   monetisation: MonetisationStep;
   auditLog: AuditEvent[];
-  selectedVariantId: string;
-  autonomyLevel: string;
   fallbackUsed: boolean;
   generatedAt: string;
 }
@@ -143,13 +171,13 @@ export interface CutLabRun {
 export type CampaignBriefInput = Partial<
   Pick<
     CampaignBrief,
-    | "brandName"
+    | "userRequest"
+    | "brand"
     | "niche"
-    | "product"
-    | "goal"
     | "audience"
     | "businessObjective"
     | "tone"
+    | "product"
     | "constraints"
   >
 >;

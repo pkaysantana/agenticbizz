@@ -33,8 +33,10 @@ export async function POST(request: Request) {
 
     const { error } = await supabase.from("cutlab_runs").insert({
       id: payload.id,
-      brand_name: payload.brief.brandName,
-      selected_variant_id: payload.selectedVariantId,
+      brand_name: payload.brief.brand,
+      selected_variant_id:
+        payload.hookVariants.find((variant) => variant.recommended)?.id ??
+        "variant-b",
       payload,
       audit_log: payload.auditLog,
       created_at: payload.generatedAt,

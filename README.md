@@ -1,103 +1,132 @@
 # CutLab
 
-CutLab is a self-running short-form video growth business: a creator enters an idea and niche, then agents generate a storyboard, extract hook fingerprints, create opening variants, simulate retention, recommend the best business outcome, and prepare monetised export with human approval gates.
+CutLab is a self-running AI video studio that turns an idea into a trend-optimised short-form video package.
 
 ## Hackathon Brief
 
-Built for the Cursor Hands Off London Hackathon: create a self-running business powered by AI agents. CutLab demonstrates agent autonomy, persistent run state, simulated decision-making, audit logs, graceful fallbacks, and safety oversight for a real creator-growth workflow.
+Built for the Cursor Hands Off London Hackathon, CutLab demonstrates a self-running business powered by agents. The business sells automated video generation and hook optimisation to creators, brands, and agencies.
 
-Hackathon submission summary:
+The root route `/` opens directly into a complete seeded demo. There is no login, no empty state, and no external API required.
 
-CutLab is a self-running short-form video growth business. A creator submits an idea and niche; agents generate a storyboard, extract hook fingerprints, create variants, simulate retention, recommend the best opening, and prepare monetised export. A safety layer checks copyright, brand, and policy risk, while human approval gates prevent unsafe autonomous publishing.
+## Agent Workflow
 
-## Agents
+The demo path is:
 
-- Brief Intake Agent: structures raw creator input into a campaign brief, assumptions, constraints, and risk flags.
-- Scout Agent: simulates high-performing trend patterns for the niche using seeded demo data.
-- Analyst Agent: extracts first-three-second hook fingerprints without copying creator-specific content.
-- Director Agent: turns the brief into a 20-second storyboard.
-- Editor Agent: creates three hook variants from the strongest fingerprints.
-- Learning Agent: simulates retention, click intent, confidence, and recommends the best business outcome.
-- Safety & Oversight Agent: checks copyright similarity, misleading claims, brand risk, platform risk, reputation, and approval needs.
-- Monetisation Agent: prepares paid optimisation export through a sandboxed checkout flow.
+1. User asks for a video.
+2. CutLab generates an initial rough concept.
+3. A trend intelligence layer analyses seeded niche patterns.
+4. The system compares the rough cut against trending hook/style fingerprints.
+5. It improves openings, keyframes, scripts, and scene structure.
+6. It outputs an optimised video package.
+7. It simulates performance learning with seeded metrics.
+8. It prepares export/payment, gated by human approval.
+
+Agents shown in the timeline:
+
+- Intake Agent
+- Director Agent
+- Video Generation Agent
+- Trend Scout Agent
+- Hook Analyst Agent
+- Editor Agent
+- Learning Agent
+- Safety & Approval Agent
+- Monetisation Agent
 
 ## Stack
 
+- Cursor
 - Next.js App Router
 - TypeScript
 - Tailwind CSS
-- `lucide-react` for UI icons
-- `zod` for light API input validation
-- Supabase optional for run/audit persistence
-- Modal optional for trend analysis endpoint
-- PayPal sandbox optional for checkout preparation
+- Modal optional trend endpoint
+- Supabase optional persistence
+- PayPal Sandbox optional checkout
 - Vercel-ready deployment
 
 ## Demo Flow
 
-The root route `/` opens directly into a completed seeded RepForm demo:
+The seeded campaign is for RepForm, a gymwear brand launching a new compression top for 18-30 gym-goers. The business objective is product page clicks and purchases.
 
-1. Creator brief for a fitness apparel compression top.
-2. Sequential agent timeline.
-3. Storyboard for a 20-second TikTok/Reel.
-4. Trend fingerprints panel.
-5. Three hook variant cards.
-6. Learning loop with simulated retention and click-intent metrics.
-7. Predict-before-publish safety and oversight layer.
-8. Approval/export/payment panel.
-9. Audit log of agent handoffs.
-10. Architecture and autonomy-level summary.
+The homepage shows:
 
-The “Run autonomous workflow” button replays the timeline and calls `/api/run-agent`. The page remains useful even when all external services are unavailable.
+- Hero with workflow chips and stack badges.
+- User brief.
+- Initial rough concept with title, scenes, hook, script, and keyframes.
+- Agent timeline.
+- Trend intelligence fingerprints.
+- Our video vs trending comparison.
+- Three improved hook variants.
+- Final optimised cut based on Variant B.
+- Simulated learning loop.
+- Safety and oversight checks.
+- Monetisation / PayPal Sandbox step.
+- Chronological audit log.
+
+## Live Vs Mocked
+
+Live:
+
+- Next.js dashboard.
+- Typed deterministic `CutLabRun` data model.
+- `/api/run-agent` route.
+- `/api/checkout` route.
+- Optional `/api/save-run` Supabase persistence route.
+
+Mocked or seeded:
+
+- Trend fingerprints.
+- Retention, click-intent, and purchase-intent metrics.
+- Learning loop feedback.
+- Video rendering output, represented as storyboard, script, keyframes, and hook variants.
+- Checkout when PayPal credentials are missing or sandbox order creation fails.
+
+Not implemented tonight:
+
+- Real YouTube scraping.
+- Real publishing.
+- Real video rendering.
+- Autonomous payment execution.
 
 ## Safety And Oversight Design
 
-CutLab uses “autonomy where risk is low, approval where risk is high.” Agents can generate, analyse, score, and recommend, but external publishing, export, and payment execution require human approval in the MVP.
+CutLab copies structural patterns, not creator-specific footage, wording, faces, or protected assets.
 
-The safety layer checks:
+The MVP allows agents to generate, analyse, score, and recommend. It blocks high-impact external actions until human approval. The safety panel covers copyright similarity risk, brand safety risk, misleading claims risk, platform policy risk, publishing approval, and payment/export approval.
 
-- Copyright similarity risk.
-- Brand safety risk.
-- Misleading claim risk.
-- Platform policy risk.
-- Reputational risk.
-- Whether external actions are allowed.
-
-The demo status is approved for internal preview only. Fully autonomous publishing/payment is disabled.
+Current demo status: approved for internal preview, requires human approval for external publishing.
 
 ## Fallback Design
 
-The deterministic seeded run in `src/lib/demo-data.ts` is the source of truth for the judge-visible demo. `/api/run-agent` tries `MODAL_TREND_ENDPOINT` with an 8-second timeout, validates the returned shape, and falls back to the seeded `CutLabRun` if the endpoint is missing, slow, failed, or malformed.
+`src/lib/demo-data.ts` is the judge-visible source of truth. The seeded data always works.
 
-`/api/save-run` returns success with `persisted: false` if Supabase is not configured or the write fails. `/api/checkout` creates a PayPal sandbox order when sandbox credentials are configured, and otherwise returns a polished demo checkout state so the flow never blocks.
+`/api/run-agent` accepts a POST body with brief, niche, and product fields. If `MODAL_TREND_ENDPOINT` exists, the route tries it with an 8-second timeout. If Modal is missing, slow, failed, or returns the wrong shape, the route returns deterministic seeded `CutLabRun` data.
 
-## Live Vs Sandboxed
+`/api/checkout` returns PayPal Sandbox-shaped checkout data. If PayPal credentials are missing, it returns mock checkout data instead of failing the demo.
 
-- Live: Next.js dashboard, typed seeded data, `/api/run-agent`, `/api/save-run`, `/api/checkout`, replayable agent timeline.
-- Optional live integration: Modal trend endpoint if `MODAL_TREND_ENDPOINT` is configured.
-- Optional persistence: Supabase if `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL` plus `SUPABASE_SERVICE_ROLE_KEY` are configured.
-- Sandboxed: PayPal checkout preparation. With sandbox credentials, CutLab creates a real PayPal sandbox order and returns the approval URL.
-- Demo-only: retention predictions, trend fingerprints, and safety scores are deterministic seeded simulations, not validated performance forecasts.
+## Environment
 
-## Future Work
+No environment variables are required for the default demo.
 
-- Replace seeded trend fingerprints with a bounded trend-ingestion worker.
-- Persist runs, approvals, and feedback loops in Supabase.
-- Add creator-uploaded brand guidelines and claim substantiation.
-- Add real video rendering/export after approval.
-- Use real paid checkout and entitlement tracking.
-- Train future recommendations from actual retention and conversion feedback.
+Optional integrations:
 
-## Getting Started
+```bash
+MODAL_TREND_ENDPOINT=
+PAYPAL_CLIENT_ID=
+PAYPAL_CLIENT_SECRET=
+PAYPAL_API_BASE_URL=https://api-m.sandbox.paypal.com
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+```
 
-Install dependencies and run the development server:
+## Run Locally
 
 ```bash
 npm install
 npm run dev
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 Useful checks:
 
@@ -106,37 +135,11 @@ npm run lint
 npm run build
 ```
 
-## Environment
+## Future Work
 
-Copy `.env.local.example` to `.env.local` only if you want optional integrations:
-
-```bash
-SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-MODAL_TREND_ENDPOINT=
-PAYPAL_CLIENT_ID=
-PAYPAL_CLIENT_SECRET=
-PAYPAL_API_BASE_URL=https://api-m.sandbox.paypal.com
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
-```
-
-No environment variables are required for the default demo.
-
-## PayPal Sandbox
-
-The approval flow is safe by default. Clicking “Approve export” calls `/api/checkout`.
-
-Without PayPal credentials, the UI shows “Demo checkout approved” and no money moves. With sandbox credentials, the API creates a PayPal sandbox order for `10 optimisation runs: GBP 19` and returns an approval URL.
-
-To enable the real sandbox order path:
-
-1. Create a PayPal sandbox app in the PayPal Developer Dashboard.
-2. Add the sandbox client ID and secret to `.env.local`.
-3. Restart `npm run dev`.
-4. Click “Approve export”, then “Open PayPal sandbox checkout”.
-
-## Deploy on Vercel
-
-Deploy as a standard Next.js app. The fallback-first design means a Vercel deployment works without Supabase, Modal, or PayPal credentials.
+- Replace seeded trend fingerprints with a bounded trend-ingestion worker.
+- Add creator-uploaded brand guidelines and claim substantiation.
+- Persist run history, approvals, and feedback in Supabase.
+- Render real videos after human approval.
+- Add entitlement tracking after PayPal payment approval.
+- Learn recommendations from real retention and conversion data.

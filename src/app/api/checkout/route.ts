@@ -1,77 +1,61 @@
+type CheckoutResponse = {
+  provider: "PayPal Sandbox";
+  sandboxMode: true;
+  checkoutStatus: string;
+  amount: number;
+  currency: "GBP";
+  approvalRequired: boolean;
+  message: string;
+  approvalUrl?: string;
+};
+
+const baseCheckout: Omit<CheckoutResponse, "checkoutStatus" | "message"> = {
+  provider: "PayPal Sandbox",
+  sandboxMode: true,
+  amount: 19,
+  currency: "GBP",
+  approvalRequired: true,
+};
+
 export async function POST() {
   const clientId = process.env.PAYPAL_CLIENT_ID;
   const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
 
-  if (clientId && clientSecret) {
-    const paypalOrder = await createPayPalSandboxOrder(clientId, clientSecret);
-
-    if (paypalOrder.ok) {
-      return Response.json({
-        ok: true,
-        provider: "PayPal Sandbox",
-        sandboxMode: true,
-        checkoutStatus: "sandbox_order_created",
-        exportStatus: "approved_for_sandbox_checkout",
-        approvalRequired: false,
-        externalActionExecuted: true,
-        checkoutUrl: paypalOrder.checkoutUrl,
-        orderId: paypalOrder.orderId,
-        offer: {
-          name: "CutLab 10 optimisation runs",
-          price: 19,
-          currency: "GBP",
-        },
-        message:
-          "Export approved. PayPal sandbox order created; open the sandbox checkout to complete the demo payment.",
-      });
-    }
-
+  if (!clientId || !clientSecret) {
     return Response.json({
-      ok: true,
-      provider: "PayPal Sandbox",
-      sandboxMode: true,
-      checkoutStatus: "sandbox_order_failed",
-      exportStatus: "approved_for_demo_checkout",
-      approvalRequired: false,
-      externalActionExecuted: false,
-      checkoutUrl: undefined,
-      orderId: undefined,
-      offer: {
-        name: "CutLab 10 optimisation runs",
-        price: 19,
-        currency: "GBP",
-      },
+      ...baseCheckout,
+      checkoutStatus: "mock_checkout_ready",
       message:
-        "Export approved. PayPal credentials are loaded, but sandbox order creation failed. Restart the dev server after editing .env.local, and confirm the credentials are sandbox (not live).",
-    });
+        "Mock checkout ready. PayPal credentials are missing, so no payment is executed.",
+    } satisfies CheckoutResponse);
+  }
+
+  const paypalOrder = await createPayPalSandboxOrder(clientId, clientSecret);
+
+  if (!paypalOrder.ok) {
+    return Response.json({
+      ...baseCheckout,
+      checkoutStatus: "mock_checkout_ready_after_sandbox_failure",
+      message:
+        "PayPal Sandbox credentials are configured, but order creation failed. The demo falls back to mock checkout and no payment is executed.",
+    } satisfies CheckoutResponse);
   }
 
   return Response.json({
-    ok: true,
-    provider: "PayPal Sandbox",
-    sandboxMode: true,
-    checkoutStatus: "demo_checkout_ready",
-    exportStatus: "approved_for_demo_checkout",
-    approvalRequired: false,
-    externalActionExecuted: false,
-    checkoutUrl: undefined,
-    orderId: "demo-paypal-order",
-    offer: {
-      name: "CutLab 10 optimisation runs",
-      price: 19,
-      currency: "GBP",
-    },
+    ...baseCheckout,
+    checkoutStatus: "sandbox_approval_url_prepared",
     message:
-      "Export approved. Demo checkout is ready in sandbox mode; no PayPal credentials are configured, so no money moves.",
-  });
+      "PayPal Sandbox approval URL prepared. A human must approve before any payment execution.",
+    approvalUrl: paypalOrder.approvalUrl,
+  } satisfies CheckoutResponse);
 }
 
 async function createPayPalSandboxOrder(
   clientId: string,
   clientSecret: string,
 ): Promise<
-  | { ok: true; orderId: string; checkoutUrl: string }
-  | { ok: false; step: "token" | "order"; status: number; detail: string }
+  | { ok: true; orderId: string; approvalUrl: string }
+  | { ok: false; reason: string }
 > {
   const baseUrl =
     process.env.PAYPAL_API_BASE_URL ?? "https://api-m.sandbox.paypal.com";
@@ -89,13 +73,7 @@ async function createPayPalSandboxOrder(
     });
 
     if (!tokenResponse.ok) {
-      const detail = await tokenResponse.text();
-      return {
-        ok: false,
-        step: "token",
-        status: tokenResponse.status,
-        detail: detail.slice(0, 200),
-      };
+      return { ok: false, reason: "token_request_failed" };
     }
 
     const tokenPayload = (await tokenResponse.json()) as {
@@ -103,12 +81,7 @@ async function createPayPalSandboxOrder(
     };
 
     if (!tokenPayload.access_token) {
-      return {
-        ok: false,
-        step: "token",
-        status: tokenResponse.status,
-        detail: "No access token returned from PayPal.",
-      };
+      return { ok: false, reason: "missing_access_token" };
     }
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -122,7 +95,7 @@ async function createPayPalSandboxOrder(
         intent: "CAPTURE",
         purchase_units: [
           {
-            description: "CutLab 10 optimisation runs",
+            description: "CutLab 10 video optimisation runs",
             amount: {
               currency_code: "GBP",
               value: "19.00",
@@ -131,8 +104,8 @@ async function createPayPalSandboxOrder(
         ],
         application_context: {
           brand_name: "CutLab",
-          landing_page: "LOGIN",
-          user_action: "PAY_NOW",
+          landing_page: "NO_PREFERENCE",
+          user_action: "CONTINUE",
           return_url: siteUrl,
           cancel_url: siteUrl,
         },
@@ -140,43 +113,23 @@ async function createPayPalSandboxOrder(
     });
 
     if (!orderResponse.ok) {
-      const detail = await orderResponse.text();
-      return {
-        ok: false,
-        step: "order",
-        status: orderResponse.status,
-        detail: detail.slice(0, 200),
-      };
+      return { ok: false, reason: "order_request_failed" };
     }
 
     const orderPayload = (await orderResponse.json()) as {
       id?: string;
       links?: Array<{ href: string; rel: string }>;
     };
-    const checkoutUrl = orderPayload.links?.find(
+    const approvalUrl = orderPayload.links?.find(
       (link) => link.rel === "approve",
     )?.href;
 
-    if (!orderPayload.id || !checkoutUrl) {
-      return {
-        ok: false,
-        step: "order",
-        status: orderResponse.status,
-        detail: "PayPal order created without an approval URL.",
-      };
+    if (!orderPayload.id || !approvalUrl) {
+      return { ok: false, reason: "missing_approval_url" };
     }
 
-    return {
-      ok: true,
-      orderId: orderPayload.id,
-      checkoutUrl,
-    };
+    return { ok: true, orderId: orderPayload.id, approvalUrl };
   } catch {
-    return {
-      ok: false,
-      step: "token",
-      status: 0,
-      detail: "Network error while contacting PayPal sandbox.",
-    };
+    return { ok: false, reason: "paypal_network_error" };
   }
 }

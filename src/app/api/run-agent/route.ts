@@ -6,10 +6,10 @@ import {
 import type { CampaignBriefInput, CutLabRun } from "@/lib/types";
 
 const briefSchema = z.object({
-  brandName: z.string().min(1).optional(),
+  userRequest: z.string().min(1).optional(),
+  brand: z.string().min(1).optional(),
   niche: z.string().min(1).optional(),
   product: z.string().min(1).optional(),
-  goal: z.string().min(1).optional(),
   audience: z.string().min(1).optional(),
   businessObjective: z.string().min(1).optional(),
   tone: z.string().min(1).optional(),
