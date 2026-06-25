@@ -1,36 +1,127 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CutLab
+
+CutLab is a self-running short-form video growth business: a creator enters an idea and niche, then agents generate a storyboard, extract hook fingerprints, create opening variants, simulate retention, recommend the best business outcome, and prepare monetised export with human approval gates.
+
+## Hackathon Brief
+
+Built for the Cursor Hands Off London Hackathon: create a self-running business powered by AI agents. CutLab demonstrates agent autonomy, persistent run state, simulated decision-making, audit logs, graceful fallbacks, and safety oversight for a real creator-growth workflow.
+
+Hackathon submission summary:
+
+CutLab is a self-running short-form video growth business. A creator submits an idea and niche; agents generate a storyboard, extract hook fingerprints, create variants, simulate retention, recommend the best opening, and prepare monetised export. A safety layer checks copyright, brand, and policy risk, while human approval gates prevent unsafe autonomous publishing.
+
+## Agents
+
+- Brief Intake Agent: structures raw creator input into a campaign brief, assumptions, constraints, and risk flags.
+- Scout Agent: simulates high-performing trend patterns for the niche using seeded demo data.
+- Analyst Agent: extracts first-three-second hook fingerprints without copying creator-specific content.
+- Director Agent: turns the brief into a 20-second storyboard.
+- Editor Agent: creates three hook variants from the strongest fingerprints.
+- Learning Agent: simulates retention, click intent, confidence, and recommends the best business outcome.
+- Safety & Oversight Agent: checks copyright similarity, misleading claims, brand risk, platform risk, reputation, and approval needs.
+- Monetisation Agent: prepares paid optimisation export through a sandboxed checkout flow.
+
+## Stack
+
+- Next.js App Router
+- TypeScript
+- Tailwind CSS
+- `lucide-react` for UI icons
+- `zod` for light API input validation
+- Supabase optional for run/audit persistence
+- Modal optional for trend analysis endpoint
+- PayPal sandbox optional for checkout preparation
+- Vercel-ready deployment
+
+## Demo Flow
+
+The root route `/` opens directly into a completed seeded RepForm demo:
+
+1. Creator brief for a fitness apparel compression top.
+2. Sequential agent timeline.
+3. Storyboard for a 20-second TikTok/Reel.
+4. Trend fingerprints panel.
+5. Three hook variant cards.
+6. Learning loop with simulated retention and click-intent metrics.
+7. Predict-before-publish safety and oversight layer.
+8. Approval/export/payment panel.
+9. Audit log of agent handoffs.
+10. Architecture and autonomy-level summary.
+
+The “Run autonomous workflow” button replays the timeline and calls `/api/run-agent`. The page remains useful even when all external services are unavailable.
+
+## Safety And Oversight Design
+
+CutLab uses “autonomy where risk is low, approval where risk is high.” Agents can generate, analyse, score, and recommend, but external publishing, export, and payment execution require human approval in the MVP.
+
+The safety layer checks:
+
+- Copyright similarity risk.
+- Brand safety risk.
+- Misleading claim risk.
+- Platform policy risk.
+- Reputational risk.
+- Whether external actions are allowed.
+
+The demo status is approved for internal preview only. Fully autonomous publishing/payment is disabled.
+
+## Fallback Design
+
+The deterministic seeded run in `src/lib/demo-data.ts` is the source of truth for the judge-visible demo. `/api/run-agent` tries `MODAL_TREND_ENDPOINT` with an 8-second timeout, validates the returned shape, and falls back to the seeded `CutLabRun` if the endpoint is missing, slow, failed, or malformed.
+
+`/api/save-run` returns success with `persisted: false` if Supabase is not configured or the write fails. `/api/checkout` returns a PayPal sandbox placeholder if PayPal credentials are not configured.
+
+## Live Vs Sandboxed
+
+- Live: Next.js dashboard, typed seeded data, `/api/run-agent`, `/api/save-run`, `/api/checkout`, replayable agent timeline.
+- Optional live integration: Modal trend endpoint if `MODAL_TREND_ENDPOINT` is configured.
+- Optional persistence: Supabase if `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL` plus `SUPABASE_SERVICE_ROLE_KEY` are configured.
+- Sandboxed: PayPal checkout preparation.
+- Demo-only: retention predictions, trend fingerprints, and safety scores are deterministic seeded simulations, not validated performance forecasts.
+
+## Future Work
+
+- Replace seeded trend fingerprints with a bounded trend-ingestion worker.
+- Persist runs, approvals, and feedback loops in Supabase.
+- Add creator-uploaded brand guidelines and claim substantiation.
+- Add real video rendering/export after approval.
+- Use real paid checkout and entitlement tracking.
+- Train future recommendations from actual retention and conversion feedback.
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies and run the development server:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Useful checks:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run lint
+npm run build
+```
 
-## Learn More
+## Environment
 
-To learn more about Next.js, take a look at the following resources:
+Copy `.env.local.example` to `.env.local` only if you want optional integrations:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+MODAL_TREND_ENDPOINT=
+PAYPAL_CLIENT_ID=
+PAYPAL_CLIENT_SECRET=
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+No environment variables are required for the default demo.
 
 ## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Deploy as a standard Next.js app. The fallback-first design means a Vercel deployment works without Supabase, Modal, or PayPal credentials.
